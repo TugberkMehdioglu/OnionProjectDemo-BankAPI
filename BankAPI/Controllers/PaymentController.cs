@@ -48,9 +48,43 @@ namespace BankAPI.Controllers
 
         //Buraya gelicek request, bana bilgi göndereceği için POST ile request yapıcak.
         [HttpPost]
-        public ObjectResult ReceivePayment(PaymentDTO item)
+        public async Task<IActionResult> ReceivePayment(PaymentDTO item)
         {
-            return Ok(new { an = "anan" });
+            //Todo: 2021-05-10 , 2.56.46
+
+            CardInfo? cardInfo = await _context.Cards!.FirstOrDefaultAsync(x => x.CardUserName == item.CardUserName && x.SecurityNumber == item.SecurityNumber && x.CardNumber == item.CardNumber && x.CardExpiryYear == item.CardExpiryYear && x.CardExpiryMounth == item.CardExpiryMounth);
+
+            if (cardInfo != null)
+            {
+                if (cardInfo.CardExpiryYear < DateTime.Now.Year) return BadRequest("Expired Card");
+
+                else if (cardInfo.CardExpiryYear == DateTime.Now.Year)
+                {
+                    if (cardInfo.CardExpiryMounth < DateTime.Now.Month) return BadRequest("Expired Card");
+
+                    if (cardInfo.Balance >= item.ShoppingPrice) 
+                    {
+                        cardInfo.Balance -= item.ShoppingPrice;
+                        await _context.SaveChangesAsync();
+
+                        return Ok();
+                    } 
+                    else return BadRequest("Balance Exceeded");
+                }
+
+                if (cardInfo.Balance >= item.ShoppingPrice) 
+                {
+                    cardInfo.Balance -= item.ShoppingPrice;
+                    await _context.SaveChangesAsync();
+
+                    return Ok();
+                } 
+                else return BadRequest("Balance Exceeded");
+            }
+            else return BadRequest("Card Not Found");
         }
+
+        //Middleware'de builder.Services.AddCors(); ve app.UseCors(builder => { builder.AllowAnyOrigin(); builder.AllowAnyMethod(); builder.AllowAnyHeader(); }); koymayı unutma.
+        //BackEnd'den API'a request atmak için: WebApiRestService.WebApiClient kütüphanesini indir diyo .NetFramework'te hoca. Fakat .NetCore'da buna ihtiyaç yok.
     }
 }
